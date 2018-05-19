@@ -1,0 +1,51 @@
+service: dlq-tutorial
+provider:
+  name: aws
+  runtime: python3.6
+  region: ap-northeast-1
+  stage: debug
+
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - sqs:SendMessage
+      Resource:
+        - Fn::Join: [ ":", [ "arn:aws:sqs", Ref: "AWS::Region", Ref: "AWS::AccountId", "${self:custom.dlq_tutorial}" ] ]
+
+plugins:
+  - serverless-plugin-lambda-dead-letter
+
+custom:
+  stage: "${opt:stage, self:provider.stage}"
+  dlq_tutorial: dlq-tutorial
+
+functions:
+  dlq_tutorial:
+    handler: handler.hello
+    memorySize: 128
+    timeout: 300
+    deadLetter:
+      sqs: ${self:custom.dlq_tutorial}
+    events:
+      - schedule:
+          description: "Dead Letter Queue Debugging..."
+          rate: rate(1 minute)
+          input:
+            hell: world
+  dlq_message_handler:
+    handler: handler.dlq_message_handler
+    memorySize: 128
+    timeout: 300
+
+resources:
+  Resources:
+    DlqUnderscoretutorialLogGroup:
+      Properties:
+        RetentionInDays: "1"
+
+package:
+  exclude:
+    - package-lock.json
+    - node_modules/**
+    - tests/**
+    - __pycache__/**
